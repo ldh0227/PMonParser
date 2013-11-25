@@ -82,10 +82,15 @@ if __name__ == "__main__":
     curWork = {}
     
     # Make Process Information for Log Wide.
-    ProcessInfos = {}    
+    ProcessInfos = {}
+    ProcHandleInfos = {}
+    FileHandleInfos = {}
+    
     for curProc in jsonData['behavior']['processes']:
         ProcessInfos[curProc['process_id']] = curProc['process_name']
         ProcessInfos[str(curProc['process_id'])+"_pid"] = curProc['parent_id']
+        ProcHandleInfos[curProc['process_id']] = {}
+        FileHandleInfos[curProc['process_id']] = {}
     
     try:    
         for curProc in jsonData['behavior']['processes']:
@@ -103,7 +108,6 @@ if __name__ == "__main__":
                     if iFeatIdx == 1:
                         if curCall['api'].find('NtCreateProcess') != -1:
                             curWork['Arg1'] = curCall['arguments']['Filename']
-                            #curWork['Arg2'] = 
                         elif curCall['api'] == 'NtCreateUserProcess':
                             print "do something"
                         elif curCall['api'] == 'NtCreateProcessInternalW':
