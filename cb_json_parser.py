@@ -151,13 +151,15 @@ if __name__ == "__main__":
                                     curWork['Arg2'] = "ChildPID: NotFound"
                                 
                                 # Set Arg3 from Process Command LIne    
-                                curWork['Arg3'] = curCall['arguments'][0]['value']+" "+curCall['arguments'][1]['value']                        
+                                curWork['Arg3'] = curCall['arguments'][0]['value']+" "+curCall['arguments'][1]['value']
+                                                        
                     elif iFeatIdx == 2:
                         # NtTerminateProcess
                         curWork['Arg1'] = "STATUS: "+curCall['status']
                         curWork['Arg2'] = "PROCESSHANDLE: "+curCall['arguments'][0]['value']
                         curProcHandleTable = ProcessHandleInfos[curProc['process_id']]
                         curWork['Arg3'] = "PROCESSNAME: "+curProcHandleTable[curWork['Arg2']]
+                        
                     elif iFeatIdx == 3:
                         print "do something"
                     elif iFeatIdx == 4:
