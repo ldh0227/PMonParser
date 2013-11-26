@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # -*- encoding: utf-8 -*-
 
+import os
 import time
 import sys
 import json
@@ -28,7 +29,7 @@ if __name__ == "__main__":
     for i in range(31):
         flagFeatFound.append(False)
     
-    lstFeatAPI = [["NtCreateProcess", "NtCreateProcessEx", "NtCreateUserProcess", "NTCreateProcessInternalW", "ShellExecuteExW", "CreateRemoteThread"],
+    lstFeatAPI = [["CreateProcessInternalW", "ShellExecuteExW", "CreateRemoteThread"],
                   ["NtTerminateProcess"],
                   ["NtOpenProcess"],
                   ["ReadProcessMemory", "NtReadVirtualMemory"],
@@ -36,8 +37,8 @@ if __name__ == "__main__":
                   ["bind", "listen"],
                   ["InternetOpenUrlA", "InternetOpenUrlW", "HttpSendRequestA", "HttpSendRequestW", "InternetReadFile"],
                   ["FindWindowA", "FindWindowW", "FindWindowExA", "FindWindowExW"],
-                  ["NtCreateProcess", "NtCreateProcessEx", "NtCreateUserProcess", "NTCreateProcessInternalW", "ShellExecuteExW", "CreateRemoteThread"],
-                  ["NtCreateProcess", "NtCreateProcessEx", "NtCreateUserProcess", "NTCreateProcessInternalW", "ShellExecuteExW", "CreateRemoteThread"],
+                  ["CreateProcessInternalW", "ShellExecuteExW", "CreateRemoteThread"],
+                  ["CreateProcessInternalW", "ShellExecuteExW", "CreateRemoteThread"],
                   ["LdrLoadDll"],
                   ["NtCreateFile", "NtOpenFile"],
                   ["NtCreateMutant"],
@@ -92,6 +93,8 @@ if __name__ == "__main__":
         ProcHandleInfos[curProc['process_id']] = {}
         FileHandleInfos[curProc['process_id']] = {}
     
+    csvWriter.writerow([ProcessInfos])
+    
     try:    
         for curProc in jsonData['behavior']['processes']:
             for curCall in curProc['calls']:
@@ -103,19 +106,16 @@ if __name__ == "__main__":
                     except ValueError:                    
                         continue
                     
-                    curWork['iFeatIdx'] = iFeatIDx
+                    curWork['iFeatIdx'] = iFeatIdx
                     
-                    if iFeatIdx == 1:
-                        if curCall['api'].find('NtCreateProcess') != -1:
-                            curWork['Arg1'] = curCall['arguments']['Filename']
-                        elif curCall['api'] == 'NtCreateUserProcess':
-                            print "do something"
-                        elif curCall['api'] == 'NtCreateProcessInternalW':
-                            print "do something"
+                    if iFeatIdx == 1:                        
+                        if curCall['api'] == 'CreateProcessInternalW':
+                            if curCall['status'] == "SUCCESS":
+                                csvWriter.writerow([curCall['arguments'][1]['value']])
                         elif curCall['api'] == 'ShellExecuteExW':
-                            print "do something"
+                            csvWriter.writerow([curCall['arguments']])
                         elif curCall['api'] == 'CreateRemoteThread':
-                            print "do something"
+                            csvWriter.writerow([curCall['arguments']])
                     elif iFeatIdx == 2:
                         print "do something"
                     elif iFeatIdx == 3:
