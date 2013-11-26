@@ -29,7 +29,7 @@ if __name__ == "__main__":
     for i in range(31):
         flagFeatFound.append(False)
     
-    lstFeatAPI = [["CreateProcessInternalW", "ShellExecuteExW", "CreateRemoteThread"],
+    lstFeatAPI = [["CreateProcessInternalW", "ShellExecuteExW"],
                   ["NtTerminateProcess"],
                   ["NtOpenProcess"],
                   ["ReadProcessMemory", "NtReadVirtualMemory"],
@@ -37,8 +37,8 @@ if __name__ == "__main__":
                   ["bind", "listen"],
                   ["InternetOpenUrlA", "InternetOpenUrlW", "HttpSendRequestA", "HttpSendRequestW", "InternetReadFile"],
                   ["FindWindowA", "FindWindowW", "FindWindowExA", "FindWindowExW"],
-                  ["CreateProcessInternalW", "ShellExecuteExW", "CreateRemoteThread"],
-                  ["CreateProcessInternalW", "ShellExecuteExW", "CreateRemoteThread"],
+                  ["CreateProcessInternalW", "ShellExecuteExW"],
+                  ["CreateProcessInternalW", "ShellExecuteExW"],
                   ["LdrLoadDll"],
                   ["NtCreateFile", "NtOpenFile"],
                   ["NtCreateMutant"],
@@ -123,12 +123,35 @@ if __name__ == "__main__":
                     if iFeatIdx == 1:                        
                         if curCall['api'] == 'CreateProcessInternalW':
                             if curCall['status'] == "SUCCESS":
-                                # Process Handle Table Setting
-                                curProcHandleTable[curCall['arguments'][5]['value']] = ProcessInfos[curCall['arguments'][3]['value']]
+                                # Process Handle Table Setting 
+                                # Set Arg1 from Process Name
+                                try:
+                                    curProcHandleTable[curCall['arguments'][5]['value']] = "ProcName: "+ProcessInfos[curCall['arguments'][3]['value']]
+                                    curWork['Arg1'] = ProcessInfos[curCall['arguments'][3]['value']]
+                                except:
+                                    curProcHandleTable[curCall['arguments'][5]['value']] = "CmdLine: "+str(curCall['arguments'][1]['value'])
+                                    curWork['Arg1'] = curCall['arguments'][1]['value']
+                                
+                                # Set Arg2 from Child Process PID
+                                curWork['Arg2'] = "ChildPID: "+str(curCall['arguments'][3]['value'])
+                                
+                                # Set Arg3 from Process Command Line
+                                curWork['Arg3'] = "CmdLine: "+str(curCall['arguments'][3]['value'])                                
+                                                                    
                         elif curCall['api'] == 'ShellExecuteExW':
-                            csvWriter.writerow([curCall['arguments']])
-                        elif curCall['api'] == 'CreateRemoteThread':
-                            csvWriter.writerow([curCall['arguments']])
+                            if curCall['status'] == "SUCCESS":
+                                # Set Arg1 from Process Name for Path!
+                                curWork['Arg1'] = curCall['arguments'][0]['value']
+                                
+                                # Get basename(filename) and Find PID from json
+                                tmpProcName = os.path.basename(curCall['arguments'][0]['value'])
+                                try:
+                                    curWork['Arg2'] = "ChildPID: "+ProcessInfos.keys()[ProcessInfos.values().index('tmpProcName')]
+                                except:
+                                    curWork['Arg2'] = "ChildPID: NotFound"
+                                
+                                # Set Arg3 from Process Command LIne    
+                                curWork['Arg3'] = curCall['arguments'][0]['value']+" "+curCall['arguments'][1]['value']                        
                     elif iFeatIdx == 2:
                         # NtTerminateProcess
                         curWork['Arg1'] = "STATUS: "+curCall['status']
