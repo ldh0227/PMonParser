@@ -97,6 +97,8 @@ if __name__ == "__main__":
     
     try:    
         for curProc in jsonData['behavior']['processes']:
+            ProcHandleInfos[curProc['process_id']] = {}
+            curProcHandleTable = ProcHandleInfos[curProc['process_id']]
             for curCall in curProc['calls']:
                 iFeatIdx = 0
                 for curFeatAPI in lstFeatAPI:
@@ -106,18 +108,33 @@ if __name__ == "__main__":
                     except ValueError:                    
                         continue
                     
-                    curWork['iFeatIdx'] = iFeatIdx
+                    # Write Data Initial
+                    curWork['TimeStamp'] = curCall['timestamp']
+                    curWork['ProcessName'] = curProc['process_name']
+                    curWork['PID'] = curProc['process_id']                    
+                    curWork['TypeID'] = iFeatIdx
+                    curWork['Arg1'] = ''
+                    curWork['Arg2'] = ''
+                    curWork['Arg3'] = ''
+                    curWork['Arg4'] = ''
+                    curWork['Arg5'] = ''
+                    curWork['Arg6'] = ''                    
                     
                     if iFeatIdx == 1:                        
                         if curCall['api'] == 'CreateProcessInternalW':
                             if curCall['status'] == "SUCCESS":
-                                csvWriter.writerow([curCall['arguments'][1]['value']])
+                                # Process Handle Table Setting
+                                curProcHandleTable[curCall['arguments'][5]['value']] = ProcessInfos[curCall['arguments'][3]['value']]
                         elif curCall['api'] == 'ShellExecuteExW':
                             csvWriter.writerow([curCall['arguments']])
                         elif curCall['api'] == 'CreateRemoteThread':
                             csvWriter.writerow([curCall['arguments']])
                     elif iFeatIdx == 2:
-                        print "do something"
+                        # NtTerminateProcess
+                        curWork['Arg1'] = "STATUS: "+curCall['status']
+                        curWork['Arg2'] = "PROCESSHANDLE: "+curCall['arguments'][0]['value']
+                        curProcHandleTable = ProcessHandleInfos[curProc['process_id']]
+                        curWork['Arg3'] = "PROCESSNAME: "+curProcHandleTable[curWork['Arg2']]
                     elif iFeatIdx == 3:
                         print "do something"
                     elif iFeatIdx == 4:
@@ -178,7 +195,7 @@ if __name__ == "__main__":
                         print "do something"
                         
                     iWorkCount = iWorkCount + 1
-                    #csvWriter.writerow([iWorkCount, 1, "csrc", curCall['timestamp'], curProc['process_name'], curProc['process_id'], iFeatIdx, curCall['api'], curCall['thread_id'], curCall['arguments']])                    
+                    csvWriter.writerow([iWorkCount, 1, "csrc", curWork['TimeStamp'], curWork['ProcessName'], curWork['PID'], curWork['TypeID'], curWork['Arg1'], curWork['Arg2'], curWork['Arg3'], curWork['Arg4'], curWork['Arg5'], curWork['Arg6']])                    
                     
                     flagFeatFound[iFeatIdx-1] = True
     except ValueError:
