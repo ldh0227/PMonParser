@@ -1,20 +1,21 @@
 #!/usr/bin/python
 # -*- encoding: utf-8 -*-
-#
-# Cuckoo Sandbox json Report Parser
-# @author: Dong-ha, Lee (ldh0227)
-# @contact: ldh0227@kaist.ac.kr
-# @copyright: All information in this Code belong to the Cyber ​​Security Research Center, Korea Advanced Institute of Science and Technology.
-# @license: LGPL
-# @summary:
-#    json type Cuckoo Sandbox Report to CSV format.
-#    Not all Event Log. Only 31 Category with some Windows API
-
+"""
+ Cuckoo Sandbox json Report Parser
+ @author: Dong-ha, Lee (ldh0227)
+ @contact: ldh0227@kaist.ac.kr
+ @copyright: All information in this Code belong to the Cyber ​​Security Research Center, Korea Advanced Institute of Science and Technology.
+ @license: LGPL
+ @summary:
+    json type Cuckoo Sandbox Report to CSV format.
+    Not all Event Log. Only 31 Category with some Windows API
+"""
 import os
 import time
 import sys
 import json
 import unicodecsv
+import find_fake
 
 def ChkProcOpenDA(strDA):
     strRet = []
@@ -144,12 +145,14 @@ if __name__ == "__main__":
     ProcHandleInfos = {}
     FileHandleInfos = {}
     BindHandleInfos = {}
+    InetHandleInfos = {}
     
     for curProc in jsonData['behavior']['processes']:
         ProcessInfos[curProc['process_id']] = curProc['process_name']
         ProcessInfos[str(curProc['process_id'])+"_pid"] = curProc['parent_id']
         ProcHandleInfos[curProc['process_id']] = {}
         FileHandleInfos[curProc['process_id']] = {}
+        InetHandleInfos[curProc['process_id']] = {}
     
     csvWriter.writerow([ProcessInfos])
     
@@ -159,7 +162,7 @@ if __name__ == "__main__":
             curProcHandleTable = ProcHandleInfos[curProc['process_id']]
             curFileHandleTable = FileHandleInfos[curProc['process_id']]
             curBindHandleTable = BindHandleInfos[curProc['process_id']]
-            
+            curInetHandleTable = InetHandleInfos[curProc['process_id']]
             for curCall in curProc['calls']:
                 iFeatIdx = 0
                                 
@@ -287,8 +290,46 @@ if __name__ == "__main__":
                         # Any Network Connection
                         lstFeat7API = ["URLDownloadToFileW", "InternetConnectA", "InternetConnectW", "InternetOpenUrlA", "InternetOpenUrlW", "HttpOpenRequestA", "HttpOpenRequestW"]
                         
+                        # Parse Each API
+                        if curCall['api'] == "URLDownloadToFileW" != -1:
+                            # Cuckoomon.dll only hook URLDownloadToFileW
+                            curWork['Arg1'] = "STATUS: "+str(curCall['status'])
+                            curWork['Arg2'] = "URL: "+curCall['arguments'][0]['value']
+                            curWork['Arg3'] = "LocalPath: "+curCall['arguments'][1]['value']
+                        elif curCall['api'].find("InternetConnect") != -1:
+                            # InternetConnectA, InternetConnectW Same Arguments
+                            # Add InternetConnection to List
+                            curWork['Arg1'] = "STATUS: "+str(curCall['status'])
+                            curWork['Arg2'] = "Server: "+curCall['arguments'][1]['value']+":"+curCall['arguments'][2]['value']
+                            if (curCall['arguments'][3]['value'] != "") & curCall['arguments'][4]['value'] !="":
+                                curWork['Arg3'] = "Option(Username/Password): "+curCall['arguments'][3]['value']+"/"+curCall['arguments'][4]['value']
+                            else:
+                                curWork['Arg3'] = "Option(Username/Password): Empty"
+                            curInetHandleTable[curCall['arguments'][0]['value']] = curCall['arguments'][1]['value']+":"+curCall['arguments'][2]['value']
+                            
+                        elif curCall['api'].find("HttpOpenRequest") != -1:
+                            # HttpOpenRequestA, HttpOpenRequestW Same Arguments
+                            # Get Server Info from Table
+                            tmpServer = curInetHandleTable[curCall['arguments'][0]['value']]
+                            curWork['Arg1'] = "STATUS: "+str(curCall['status'])
+                            curWork['Arg2'] = "URL: "+tmpServer+curCall['arguments'][1]['value']
+                            
+                        elif curCall['api'].find("InternetOpenUrl") != -1:
+                            # InternetOpenUrlA, InternetOpenUrlW Same Arguments
+                            curWork['Arg1'] = "STATUS: "+str(curCall['status'])
+                            curWork['Arg2'] = "URL: "+curCall['arguments'][1]['value']
+                            
+                        elif curCall['api'] == "connect":
+                            # Current Cuckoomon.dll (0.6) isn't Parse Parameter Correctly.
+                            foo = "bar"     
+                        
                     elif iFeatIdx == 8:
-                        foot = "Bar"
+                        # Some FindWindow for Find specific Process
+                        # "FindWindowA", "FindWindowW", "FindWindowExA", "FindWindowExW"
+                        curCall['Arg1'] = "STATUS: "+str(curCall['status'])
+                        curCall['Arg2'] = "ClassName: "+curCall['arguments'][0]['value']
+                        curCall['Arg3'] = "WindowName: "+curCall['arguments'][1]['value']
+                        
                     elif iFeatIdx == 9:
                         foot = "Bar"
                     elif iFeatIdx == 10:
@@ -349,7 +390,7 @@ if __name__ == "__main__":
                         iWorkCount = iWorkCount + 1
                         csvWriter.writerow([iWorkCount, 1, "csrc", curWork['TimeStamp'], curWork['ProcessName'], curWork['PID'], curWork['TypeID'], curWork['Arg1'], curWork['Arg2'], curWork['Arg3'], curWork['Arg4'], curWork['Arg5'], curWork['Arg6']])                    
                     
-                    flagFeatFound[iFeatIdx-1] = True
+                        flagFeatFound[iFeatIdx-1] = True
     except ValueError:
         print("[E] This log doesn't have Behavior Log!")
         
