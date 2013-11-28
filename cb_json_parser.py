@@ -17,26 +17,38 @@ import json
 import unicodecsv
 import find_fake
 
+lstSysdir = [
+             "\\WINDOWS\\SYSTEM"
+             "\\WINDOWS\\SYSTEM32"                                  
+             ]
+
+lstDA = {             
+         "PROCESS_TERMINATE":                  0x0001,
+         "PROCESS_CREATE_THREAD":              0x0002,
+         "PROCESS_SET_SESSIONID":              0x0004,
+         "PROCESS_VM_OPERATION":               0x0008,
+         "PROCESS_VM_READ":                    0x0010,
+         "PROCESS_VM_WRITE":                   0x0020,
+         "PROCESS_DUP_HANDLE":                 0x0040,
+         "PROCESS_CREATE_PROCESS":             0x0080,
+         "PROCESS_SET_QUOTA":                  0x0100,
+         "PROCESS_SET_INFORMATION":            0x0200,
+         "PROCESS_QUERY_INFORMATION":          0x0400,
+         "PROCESS_SUSPEND_RESUME":             0x0800,
+         "PROCESS_QUERY_LIMITED_INFORMATION":  0x1000,
+         
+         "SYNCHRONIZE":     0x00100000
+        }
+
+lstDA = {             
+         "GENERIC_READ":        0x80000000,
+         "GENERIC_WRITE":       0x40000000,
+         "GENERIC_EXECUTE":     0x20000000,
+         "GENERIC_ALL":         0x10000000,
+        }
+
 def ChkProcOpenDA(strDA):
     strRet = []
-    
-    lstDA = {             
-             "PROCESS_TERMINATE":                  0x0001,
-             "PROCESS_CREATE_THREAD":              0x0002,
-             "PROCESS_SET_SESSIONID":              0x0004,
-             "PROCESS_VM_OPERATION":               0x0008,
-             "PROCESS_VM_READ":                    0x0010,
-             "PROCESS_VM_WRITE":                   0x0020,
-             "PROCESS_DUP_HANDLE":                 0x0040,
-             "PROCESS_CREATE_PROCESS":             0x0080,
-             "PROCESS_SET_QUOTA":                  0x0100,
-             "PROCESS_SET_INFORMATION":            0x0200,
-             "PROCESS_QUERY_INFORMATION":          0x0400,
-             "PROCESS_SUSPEND_RESUME":             0x0800,
-             "PROCESS_QUERY_LIMITED_INFORMATION":  0x1000,
-             
-             "SYNCHRONIZE":     0x00100000
-            }
 
     if int(strDA, 16) == 0x001f0fff: # PROCESS_ALL_ACCESS for Windows XP
         strRet.append("PROCESS_ALL_ACCESS")
@@ -51,19 +63,88 @@ def ChkProcOpenDA(strDA):
 
 def ChkFileOpenDA(strDA):
     strRet = []
-    
-    lstDA = {             
-             "GENERIC_READ":        0x80000000,
-             "GENERIC_WRITE":       0x40000000,
-             "GENERIC_EXECUTE":     0x20000000,
-             "GENERIC_ALL":         0x10000000,
-            }
 
     for curDA in lstDA.keys():
         if lstDA[curDA] & int(strDA, 16):
             strRet.append(curDA) 
     
     return strRet
+
+def isSystemDir(strPath):
+    bRet = False
+        
+    lstDir = os.path.splitdrive(strPath)
+    tmpDir = lstDir[1]
+    
+    for curSysdir in lstSysdir:
+        if tmpDir == lstSysdir:
+            bRet = True
+            break
+    
+    return bRet
+
+def isContainSystemDir(strPath):
+    bRet = False
+    
+    lstDir = os.path.splitdrive(strPath)
+    tmpDir = lstDir[1]
+    
+    for curSysdir in lstSysdir:
+        if tmpDir.find(lstSysdir) == 0:
+            bRet = True
+            break
+    
+    return bRet
+
+def isHostsPath(strPath):
+    bRet = ""
+    
+    # for Linux
+    if strPath == "/etc":
+        bRet = "Linux"
+    
+    # for Windows 95, 98, 98SE, ME
+    elif os.path.splitdrive(strPath)[1].upper() == "\\WINDOWS":
+        bRet = "Win9x"
+    
+    # NT Base 32bit (NT, 2000, XP 32bit, 2003, Vista, 7, 8)
+    elif os.path.splitdrive(strPath)[1].upper() == "\\WINDOWS\\SYSTEM\\DRIVERS\\ETC":
+        bRet = "Win32"
+    
+    # NT Base 64bit (NT, 2000, XP 32bit, 2003, Vista, 7, 8)
+    elif os.path.splitdrive(strPath)[1].upper() == "\\WINDOWS\\SYSWOW64\\DRIVERS\\ETC":
+        bRet = "Win64"
+        
+    return bRet
+
+def isTempDir(strPath):
+    bRet = False
+    
+    if strPath.upper().find("\\TEMP\\") != -1:        
+        bRet = True
+    
+    return bRet
+    
+def isInetTempDir(strPath):
+    bRet = False
+    
+    if strPath.upper().find("\\TEMPORARY INTERNET FILES\\") != -1:
+        bRet = True
+    
+    return bRet
+
+def isExecFile(strPath):
+    bRet = False
+    
+    strExt = os.path.splitext(strPath)[1].upper()
+    
+    lstExec = ["EXE", "DLL", "SYS", "SCR", "TMP"]
+    
+    for curExec in lstExec:
+        if strExt == curExec:
+            bRet = True
+
+    return bRet
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
@@ -163,6 +244,8 @@ if __name__ == "__main__":
             curFileHandleTable = FileHandleInfos[curProc['process_id']]
             curBindHandleTable = BindHandleInfos[curProc['process_id']]
             curInetHandleTable = InetHandleInfos[curProc['process_id']]
+            curProcTasksCount = 0
+            
             for curCall in curProc['calls']:
                 iFeatIdx = 0
                                 
@@ -339,7 +422,10 @@ if __name__ == "__main__":
                     elif iFeatIdx == 12:
                         foot = "Bar"
                     elif iFeatIdx == 13:
-                        foot = "Bar"
+                        if curCall['status'] == "SUCCESS":
+                            curWork['Arg1'] = "STATUS: "+str(curCall['status'])
+                            curWork['Arg2'] = "MutexName: "+curCall['arguments'][1]['value']
+                            
                     elif iFeatIdx == 14:
                         # When Port Bind and Listen!
                         if curCall['api'] == "bind":
@@ -352,25 +438,93 @@ if __name__ == "__main__":
                                 continue
                             
                     elif iFeatIdx == 15:
-                        foot = "Bar"
+                        # When File Create
+                        # CREATE_NEW = 1, CREATE_ALWAYS = 2
+                        if (curCall['arguments'][3]['value'] == 1) | (curCall['arguments'][3]['value'] == 2):
+                            if isSystemDir(os.path.dirname(curCall['arguments'][2]['value'])):
+                                curWork['Arg1'] = "STATUS: "+str(curCall['status'])
+                                curWork['Arg2'] = "Filename: "+curCall['arguments'][2]['value']
+                                curWork['Arg3'] = "DesireAccess: "+ChkFileOpenDA(curCall['arguments'][1]['value'])
+
                     elif iFeatIdx == 16:
-                        foot = "Bar"
+                        strExistName = curCall['arguments'][0]['value']
+                        strNewName = curCall['arguments'][1]['value']
+                        
+                        if isSystemDir(os.path.dirname(strExistName)) & isSystemDir(os.path.dirname(strNewName)):
+                            curWork['Arg1'] = "STATUS: "+str(curCall['status'])
+                            curWork['Arg2'] = "ExistingName: "+strExistName
+                            curWork['Arg3'] = "NewName: "+strNewName
+                            
                     elif iFeatIdx == 17:
-                        foot = "Bar"
+                        if isSystemDir(os.path.dirname(curCall['arguments'][0]['value'])):
+                            curWork['Arg1'] = "STATUS: "+str(curCall['status'])
+                            curWork['Arg2'] = "Filename: "+curCall['arguments'][0]['value']
+                        
                     elif iFeatIdx == 18:
-                        foot = "Bar"
+                        if (curCall['arguments'][3]['value'] == 1) | (curCall['arguments'][3]['value'] == 2):
+                            if isTempDir(os.path.dirname(curCall['arguments'][2]['value'])) & isExecFile(curCall['arguments'][2]['value']):
+                                curWork['Arg1'] = "STATUS: "+str(curCall['status'])
+                                curWork['Arg2'] = "Filename: "+curCall['arguments'][2]['value']
+                                curWork['Arg3'] = "DesireAccess: "+ChkFileOpenDA(curCall['arguments'][1]['value'])
+                            
                     elif iFeatIdx == 19:
-                        foot = "Bar"
+                        if (curCall['arguments'][3]['value'] == 1) | (curCall['arguments'][3]['value'] == 2):
+                            if isInetTempDir(os.path.dirname(curCall['arguments'][2]['value'])) & isExecFile(curCall['arguments'][2]['value']):
+                                curWork['Arg1'] = "STATUS: "+str(curCall['status'])
+                                curWork['Arg2'] = "Filename: "+curCall['arguments'][2]['value']
+                                curWork['Arg3'] = "DesireAccess: "+ChkFileOpenDA(curCall['arguments'][1]['value'])
+                                
                     elif iFeatIdx == 20:
-                        foot = "Bar"
+                        strSearchFile = curCall['arguments'][0]['value']
+                        
+                        if strSearchFile.find("*") != -1 & strSearchFile.find("?") != -1:
+                            curWork['Arg1'] =  "STATUS: "+curCall['status']
+                            curWork['Arg1'] =  "SearchFilename: "+curCall['arguments'][0]['value']
+                            
                     elif iFeatIdx == 21:
-                        foot = "Bar"
+                        if curCall['status'] == SUCCESS:
+                            if isExecFile(curCall['arguments'][2]['value']):
+                                curWork['Arg1'] = "STATUS: "+curCall['status']
+                                curWork['Arg2'] = "Filename: "+curCall['arguments'][2]['value']
+                                    
                     elif iFeatIdx == 22:
-                        foot = "Bar"
+                        # Open SUCCESS with WRITE Access
+                        if (curCall['arguments'][3]['value'] == 3) | (curCall['arguments'][3]['value'] == 4):
+                            if curCall['status'] == SUCCESS:
+                                strDA = ChkFileOpenDA(curCall['arguments'][1]['value'])
+                                strFilename = curCall['arguments'][2]['value']
+                                if (strDA.find("GENERIC_ALL") != -1) | (strDA.find("GENERIC_WRITE") != -1):
+                                    if isHostsPath(os.path.dirname(strFilename)) != "" & os.path.basename(strFilename) == "hosts":
+                                        curWork['Arg1'] = "STATUS: "+curCall['status']
+                                        curWork['Arg2'] = "Filename: "+strFilename
+                                        curWork['Arg3'] = "DesireAccess: "+strDA                                        
+                                    
                     elif iFeatIdx == 23:
-                        foot = "Bar"
+                        # Open SUCCESS with WRITE Access
+                        if (curCall['arguments'][3]['value'] == 3) | (curCall['arguments'][3]['value'] == 4):
+                            if curCall['status'] == SUCCESS:
+                                strDA = ChkFileOpenDA(curCall['arguments'][1]['value'])
+                                strFilename = curCall['arguments'][2]['value']
+                                if (strDA.find("GENERIC_ALL") != -1) | (strDA.find("GENERIC_WRITE") != -1):
+                                    if isHostsPath(os.path.dirname(strFilename)) != "" & os.path.basename(strFilename) == "hosts.ics":
+                                        curWork['Arg1'] = "STATUS: "+curCall['status']
+                                        curWork['Arg2'] = "Filename: "+strFilename
+                                        curWork['Arg3'] = "DesireAccess: "+strDA
+                                        
                     elif iFeatIdx == 24:
-                        foot = "Bar"
+                        curProcTasksCount = curProcTasksCount + 1
+                        if (curCall['arguments'][3]['value'] == 1) | (curCall['arguments'][3]['value'] == 2):
+                            if curCall['status'] == SUCCESS:
+                                strDA = ChkFileOpenDA(curCall['arguments'][1]['value'])
+                                strFilename = curCall['arguments'][2]['value']
+                                if (strDA.find("GENERIC_ALL") != -1) | (strDA.find("GENERIC_WRITE") != -1):
+                                    if os.path.splitdrive(os.path.dirname(strFilename))[1].upper() == "\\WINDOWS\\TASKS":
+                                        curProcTasksCount = curProcTasksCount + 1
+
+                                        curWork['Arg1'] = "STATUS: "+curCall['status']
+                                        curWork['Arg2'] = "Filename: "+strFilename
+                                        curWork['Arg3'] = "CreateJobCount: "+curProcTasksCount
+                                    
                     elif iFeatIdx == 25:
                         foot = "Bar"
                     elif iFeatIdx == 26:
