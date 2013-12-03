@@ -539,7 +539,17 @@ if __name__ == "__main__":
                         curWork['Arg2'] = "DLLPath: "+curCall['arguments'][1]['value']
                         
                 elif iFeatIdx == 12:
-                    foo = "Bar"
+                    if (curCall['status'] == "SUCCESS") | (curCall['status'] == True):
+                        if curCall['api'] == "NtCreateFile":
+                            if curCall['arguments'][4]['value'] == 0:
+                                if curCall['arguments'][0]['value'].find(curProc['process_name']) != -1:
+                                    curWork['Arg1'] = "STATUS: "+str(curCall['status'])
+                                    curWork['Arg2'] = "Filename: "+curCall['arguments'][0]['value']
+                        elif curCall['api'] == "NtCreateFile":
+                            if curCall['arguments'][3]['value'] == 0:
+                                if curCall['arguments'][2]['value'].find(curProc['process_name']) != -1:
+                                    curWork['Arg1'] = "STATUS: "+str(curCall['status'])
+                                    curWork['Arg2'] = "Filename: "+curCall['arguments'][2]['value']
                     
                 elif iFeatIdx == 13:
                     if (curCall['status'] == "SUCCESS") | (curCall['status'] == True):

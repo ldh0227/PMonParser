@@ -40,13 +40,13 @@ if __name__ == "__main__":
                 fpInput = open(strJsonRepoName, "r")
             except IOError:
                 print("[E] Check "+strJsonRepoName+"file!")
-                quit()
+                continue
             
             try:
                 jsonData = json.load(fpInput)
             except ValueError:
                 print("[E] No json Detected!")
-                quit() 
+                continue
             
             try:    
                 strMD5 = jsonData['virustotal']['md5']
