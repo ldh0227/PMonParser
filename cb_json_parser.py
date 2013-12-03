@@ -330,7 +330,7 @@ if __name__ == "__main__":
                             
                             # Get basename(filename) and Find PID from json
                             tmpProcName = os.path.basename(curCall['arguments'][0]['value'])
-                            try:
+                            try:                                
                                 curWork['Arg3'] = "ChildPID: "+ProcessInfos.keys()[ProcessInfos.values().index('tmpProcName')]
                             except:
                                 curWork['Arg3'] = "ChildPID: NotFound"

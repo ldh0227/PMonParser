@@ -53,7 +53,11 @@ if __name__ == "__main__":
                 if len(strMD5) != 32:
                     strMD5 = jsonData['behavior']['processes'][0]['process_name']
             except:
-                strMD5 = jsonData['behavior']['processes'][0]['process_name']
+                try:
+                    strMD5 = jsonData['behavior']['processes'][0]['process_name']
+                except:
+                    print("[E] No MD5 Found")
+                    continue
                 
             strCBVer = jsonData['info']['version']
                 
